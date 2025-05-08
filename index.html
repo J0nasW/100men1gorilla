@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gorilla vs 100 Men - Tactical Combat Sim FINAL</title>
+    <style>
+        :root {
+            --primary-color: #007bff; --primary-hover: #0056b3;
+            --secondary-color: #6c757d; --warning-color: #ffc107;
+            --warning-hover: #e0a800; --danger-color: #dc3545;
+            --success-color: #198754; --info-color: #0dcaf0;
+            --light-bg: #f8f9fa; --dark-text: #212529;
+            --border-color: #dee2e6; --canvas-bg: #343a40;
+            --panel-bg: #ffffff; --panel-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --top-bar-height: 60px;
+        }
+
+        body {
+            font-family: var(--font-family);
+            line-height: 1.6; margin: 0;
+            background-color: #f0f2f5;
+            color: var(--dark-text);
+            padding-top: var(--top-bar-height);
+            display: flex; flex-direction: column; align-items: center;
+            overflow-x: hidden;
+        }
+
+        #topStatsBar {
+            position: fixed;
+            top: 0; left: 0; width: 100%;
+            height: var(--top-bar-height);
+            background-color: var(--dark-text);
+            color: var(--light-bg);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+        #topStatsBar .stat-item { font-size: 1.1em; display: flex; align-items: center; }
+        #topStatsBar .stat-item strong { font-size: 1.4em; margin-left: 8px; }
+        #topStatsBar #gorillaHpValTop { color: var(--danger-color); }
+        #topStatsBar #menCountValTop { color: var(--success-color); }
+        #topStatsBar #roundCounterValTop { color: var(--info-color); }
+
+        #simulationContainer {
+            display: flex; flex-wrap: wrap;
+            width: 98%; max-width: 1900px;
+            margin-top: 20px; gap: 20px;
+        }
+        #sidebar {
+            flex: 1; padding: 0;
+            min-width: 380px; max-width: 600px;
+            display: flex; flex-direction: column;
+            background: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: var(--panel-shadow);
+            overflow: hidden;
+        }
+        #threejsCanvasContainer {
+            flex: 2; min-width: 450px;
+            height: calc(100vh - var(--top-bar-height) - 40px); /* Adjusted height */
+            min-height: 550px;
+            background-color: var(--canvas-bg);
+            position: relative; border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+        }
+        #threejsCanvas { display: block; width: 100%; height: 100%; border-radius: 12px; }
+
+        .tab-buttons { display: flex; background-color: #e9ecef; }
+        .tab-button {
+            flex-grow: 1; padding: 12px 15px; cursor: pointer; text-align: center;
+            font-weight: 500; font-size: 1em; border: none; background-color: transparent;
+            border-bottom: 3px solid transparent; transition: background-color 0.2s, border-color 0.2s;
+        }
+        .tab-button:hover { background-color: #d1d9e6; }
+        .tab-button.active {
+            background-color: var(--panel-bg); border-bottom-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .tab-content {
+            padding: 20px; display: none; flex-grow: 1;
+            overflow-y: auto;
+            /* Max height calculated to prevent double scrollbars, considering top bar and tab buttons */
+            max-height: calc(100vh - var(--top-bar-height) - 50px - 40px); /* 50px for tab buttons, 40px for padding/margins */
+        }
+        .tab-content.active { display: block; }
+        
+        .tab-content h2, .tab-content h3 {
+             text-align: left; margin-bottom: 15px; margin-top: 0;
+             padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+        }
+        .tab-content h2 { font-size: 1.6em;}
+        .tab-content h3 { font-size: 1.2em; color: var(--primary-color); margin-top: 20px;}
+
+        .settings-group label { display: block; margin-bottom: 8px; font-size: 0.98em; font-weight: 500; color: #495057;}
+        .settings-group input[type="number"], .settings-group select {
+            width: 100%; padding: 10px; margin-bottom: 15px;
+            border: 1px solid #ced4da; border-radius: 6px;
+            font-size: 0.95em; box-sizing: border-box; background-color: #fdfdfd;
+        }
+        .settings-group input[type="number"].short-input{ width: 90px;}
+
+        #strategySelectorContainer {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px; margin-bottom: 20px;
+        }
+        .strategy-card {
+            border: 2px solid var(--border-color); border-radius: 10px; padding: 12px;
+            text-align: center; cursor: pointer; transition: all 0.2s ease-in-out;
+            background-color: #fff;
+        }
+        .strategy-card:hover { border-color: var(--primary-color); box-shadow: 0 5px 10px rgba(0,0,0,0.12); transform: translateY(-3px);}
+        .strategy-card.selected { border-color: var(--success-color); background-color: #e6ffed; box-shadow: 0 0 12px rgba(var(--success-color), 0.5); transform: translateY(-1px); }
+        .strategy-card .icon { font-size: 2em; margin-bottom: 8px; }
+        .strategy-card .name { font-weight: bold; margin-bottom: 6px; font-size: 1em;}
+        .strategy-card .description { font-size: 0.85em; color: #555; line-height: 1.3;}
+
+        .action-buttons button {
+            padding: 14px 22px; color: white; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 1.05em; transition: background-color 0.2s ease, transform 0.1s ease;
+            font-weight: 500; margin: 10px 5px 0 5px; width: calc(50% - 15px);
+        }
+        .action-buttons button#startBtn { background-color: var(--primary-color); }
+        .action-buttons button#startBtn:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
+        .action-buttons button#resetBtn { background-color: var(--warning-color); color: var(--dark-text);}
+        .action-buttons button#resetBtn:hover { background-color: var(--warning-hover); transform: translateY(-1px); }
+        .action-buttons button:disabled { background-color: var(--secondary-color); color:white !important; cursor: not-allowed; transform: translateY(0px);}
+        
+        #logTabContent .log-panel { max-height: none; height: 100%; box-shadow: none; border: none; padding:0; }
+        #logTabContent #battleLog { height: calc(100% - 20px); overflow-y: auto; background: var(--light-bg); padding: 10px; border-radius: 6px;}
+        .log-entry { padding: 7px 4px; border-bottom: 1px dashed #e0e5ec; font-size: 0.9em;}
+        .log-entry:last-child { border-bottom: none; }
+
+        .gorilla-attack { color: var(--danger-color); font-weight: bold;}
+        .human-attack { color: var(--primary-color); }
+        .lucky-hit { color: #fd7e14; font-weight: bold; }
+        .strategy-info { color: #6f42c1; font-style: italic; } 
+        .terrain-info { color: #5D4037; font-style: italic; }
+        .status { color: var(--info-color); } 
+        .victory { font-weight: bold; font-size: 1.3em; padding: 8px 0; text-align:center; }
+        .gorilla-victory { color: var(--danger-color); } 
+        .human-victory { color: var(--success-color); } 
+
+        @media (max-width: 1200px) {
+             #sidebar { max-width: 100%; flex-basis: 100%; margin-bottom: 20px;}
+             #threejsCanvasContainer { flex-basis:100%; margin-right:0;}
+             .tab-content { max-height: 40vh; }
+        }
+        @media (max-width: 768px) {
+            #topStatsBar { height: auto; flex-direction: column; padding: 10px; }
+            #topStatsBar .stat-item { margin: 5px 0; }
+            body { padding-top: 110px; } /* Adjusted for potentially taller top bar */
+            #threejsCanvasContainer { height: 50vh; }
+            .action-buttons button {width: 100%; margin: 8px 0;} 
+            .tab-content { max-height: 35vh; }
+        }
+    </style>
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.156.1/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.156.1/examples/jsm/",
+            "@tweenjs/tween.js": "https://unpkg.com/@tweenjs/tween.js@21.0.0/dist/tween.esm.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="topStatsBar">
+        <div class="stat-item">Round: <strong id="roundCounterValTop">0</strong></div>
+        <div class="stat-item">Gorilla HP: <strong id="gorillaHpValTop">500/500</strong></div>
+        <div class="stat-item">Men Left: <strong id="menCountValTop">100</strong></div>
+        <div class="stat-item" id="gameStatusTop" style="font-weight:bold;">Not Started</div>
+    </div>
+
+    <div id="simulationContainer">
+        <div id="threejsCanvasContainer">
+            <canvas id="threejsCanvas"></canvas>
+        </div>
+        <div id="sidebar">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="controlTab">Control</button>
+                <button class="tab-button" data-tab="settingsTab">Settings</button>
+                <button class="tab-button" data-tab="logTab">Log</button>
+            </div>
+
+            <div id="controlTab" class="tab-content active">
+                <h2>Simulation Control</h2>
+                <div class="settings-group">
+                    <h3>Combat Strategy</h3>
+                    <div id="strategySelectorContainer"></div>
+                </div>
+                <div class="action-buttons" style="text-align:center;">
+                    <button id="startBtn">Start Simulation</button>
+                    <button id="resetBtn">Reset Simulation</button>
+                </div>
+            </div>
+
+            <div id="settingsTab" class="tab-content">
+                <h2>Simulation Settings</h2>
+                <div class="settings-group">
+                    <h3>Core Settings</h3>
+                    <label for="humanHp">Base Human HP (20-50):</label>
+                    <input type="number" id="humanHp" value="25" min="20" max="50" class="short-input">
+                    <label for="humanSkill">Base Human Skill % (30-90):</label>
+                    <input type="number" id="humanSkill" value="65" min="30" max="90" class="short-input">
+                    <label for="simSpeed">Sim Speed (ms/round, 100-2000):</label>
+                    <input type="number" id="simSpeed" value="600" min="100" max="2000" class="short-input">
+                </div>
+                <div class="settings-group">
+                    <h3>Environment & Behavior</h3>
+                    <label for="terrainType">Terrain Type:</label>
+                    <select id="terrainType">
+                        <option value="open_field">Open Field</option>
+                        <option value="light_forest">Light Forest</option>
+                        <option value="rocky_terrain">Rocky Terrain</option>
+                    </select>
+                    <label for="gorillaAggression">Gorilla Aggression:</label>
+                    <select id="gorillaAggression">
+                        <option value="wary">Wary</option>
+                        <option value="standard">Standard</option>
+                        <option value="enraged">Enraged</option>
+                    </select>
+                    <label for="humanCoordination">Human Coordination:</label>
+                     <select id="humanCoordination">
+                        <option value="poor">Poor</option>
+                        <option value="average">Average</option>
+                        <option value="good">Good</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="logTab" class="tab-content">
+                <h2>Battle Log</h2>
+                <div class="log-panel">
+                    <div id="battleLog">Welcome! Configure the scenario and press Start.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import TWEEN from '@tweenjs/tween.js';
+
+        console.log("Advanced Combat Sim Script Loaded");
+
+        let scene, camera, renderer, controls;
+        let gorillaMesh, groundMesh;
+        const humanMeshes = new Map();
+        const terrainObjects = []; 
+        const ARENA_RADIUS = 30; 
+        const GORILLA_SIZE = 1.9; 
+        const HUMAN_SIZE = 0.8;
+
+        const BASE_GORILLA_MAX_HP = 500;
+        const BASE_GORILLA_ATTACK_MIN = 45, BASE_GORILLA_ATTACK_MAX = 75, BASE_GORILLA_SKILL = 88, BASE_GORILLA_DEFENSE = 1;
+        const BASE_HUMAN_ATTACK_MIN = 1, BASE_HUMAN_ATTACK_MAX = 4, BASE_HUMAN_LUCKY_HIT_CHANCE = 12;
+        const BASE_HUMAN_LUCKY_HIT_BONUS_MIN = 6, BASE_HUMAN_LUCKY_HIT_BONUS_MAX = 12, BASE_MAX_ENGAGED_HUMANS = 10;
+
+        let currentGorillaMaxHp, currentGorillaAttackMin, currentGorillaAttackMax, 
+            currentGorillaSkill, currentGorillaDefense, currentGorillaAttacksPerTurn, currentGorillaMovementSpeedFactor;
+        let currentHumanAttackMin, currentHumanAttackMax, currentHumanLuckyHitChance,
+            currentHumanLuckyHitBonusMin, currentHumanLuckyHitBonusMax, currentMaxEngagedHumans,
+            currentHumanEvasionBonus;
+        
+        let gorillaCurrentHp;
+        let men = []; 
+        let baseHumanHpFromInput, baseHumanSkillFromInput; 
+        let currentHumanHpForSim, currentHumanSkillForSim; 
+
+        let simulationSpeed;
+        let currentRound;
+        let simulationInterval = null;
+        let gameOver = false;
+        let activeTweens = 0;
+        
+        let selectedStrategyId = 'standard_swarm';
+        let selectedTerrainType = 'open_field';
+        let selectedGorillaAggression = 'standard';
+        let selectedHumanCoordination = 'average';
+
+        const strategies = [
+            { id: 'standard_swarm', name: 'Standard Swarm', icon: '🎯', description: 'Balanced offensive approach.' },
+            { id: 'cautious_approach', name: 'Cautious Approach', icon: '🛡️', description: 'Wary, fewer engage. Gorilla less accurate.' },
+            { id: 'desperate_rush', name: 'Desperate Rush', icon: '⚔️', description: 'Reckless! Higher skill, more engage, less HP.' },
+            { id: 'improvised_weapons', name: 'Improvised Weapons', icon: '🧱', description: 'Rocks & sticks boost damage & lucky hits.' },
+            { id: 'makeshift_spears', name: 'Makeshift Spears', icon: '🔱', description: 'Potent spears, but fewer can engage.' },
+            { id: 'gorilla_berserk', name: 'Gorilla Berserk!', icon: '👹', description: 'Gorilla enraged! Attacks twice, high damage, low accuracy.' }
+        ];
+
+        const humanHpInput = document.getElementById('humanHp');
+        const humanSkillInput = document.getElementById('humanSkill');
+        const simSpeedInput = document.getElementById('simSpeed');
+        const terrainTypeSelect = document.getElementById('terrainType');
+        const gorillaAggressionSelect = document.getElementById('gorillaAggression');
+        const humanCoordinationSelect = document.getElementById('humanCoordination');
+        const strategySelectorContainer = document.getElementById('strategySelectorContainer');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        const roundCounterValTopEl = document.getElementById('roundCounterValTop');
+        const gorillaHpValTopEl = document.getElementById('gorillaHpValTop');
+        const menCountValTopEl = document.getElementById('menCountValTop');
+        const gameStatusTopEl = document.getElementById('gameStatusTop');
+
+        const battleLog = document.getElementById('battleLog');
+        const canvas = document.getElementById('threejsCanvas');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+
+        // --- Tab Switching Logic ---
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                tabContents.forEach(content => content.classList.remove('active'));
+                const activeTabContent = document.getElementById(button.dataset.tab);
+                if (activeTabContent) {
+                    activeTabContent.classList.add('active');
+                }
+            });
+        });
+
+        function initThree() {
+            console.log("initThree called");
+            try {
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x34495e);
+                const canvasContainer = document.getElementById('threejsCanvasContainer');
+                if (!canvasContainer) { console.error("FATAL: threejsCanvasContainer not found!"); return; }
+                camera = new THREE.PerspectiveCamera(60, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+                camera.position.set(0, ARENA_RADIUS * 1.6, ARENA_RADIUS * 1.6); 
+                camera.lookAt(0, 0, 0);
+                renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+                renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+                renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+                directionalLight.position.set(20, 35, 25); directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048; directionalLight.shadow.mapSize.height = 2048;
+                scene.add(directionalLight);
+                const groundGeometry = new THREE.CircleGeometry(ARENA_RADIUS, 64);
+                const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x556B2F, side: THREE.DoubleSide });
+                groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+                groundMesh.rotation.x = -Math.PI / 2; groundMesh.receiveShadow = true; scene.add(groundMesh);
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.target.set(0, 0, 0); controls.enableDamping = true; controls.dampingFactor = 0.04;
+                controls.minDistance = 12; controls.maxDistance = ARENA_RADIUS * 3.5;
+                controls.maxPolarAngle = Math.PI / 2 - 0.03;
+                console.log("initThree completed successfully.");
+            } catch (error) {
+                console.error("Error in initThree:", error);
+                if(gameStatusTopEl) gameStatusTopEl.textContent = "Error initializing 3D scene.";
+            }
+        }
+
+        function animateThree(time) { 
+             requestAnimationFrame(animateThree); 
+             TWEEN.update(time); 
+             if(controls) controls.update();
+             if (renderer && scene && camera) { renderer.render(scene, camera); }
+        }
+
+        function clearSceneAddons() {
+            terrainObjects.forEach(obj => {
+                if(scene) scene.remove(obj);
+                if(obj.geometry) obj.geometry.dispose();
+                if(obj.material) obj.material.dispose();
+            });
+            terrainObjects.length = 0;
+        }
+
+        function clearScene() {
+            console.log("clearScene called");
+            clearSceneAddons(); 
+            TWEEN.removeAll(); activeTweens = 0;
+            humanMeshes.forEach(mesh => { 
+                if(scene) scene.remove(mesh);
+                if(mesh.geometry) mesh.geometry.dispose();
+                if(mesh.material) mesh.material.dispose();
+            }); 
+            humanMeshes.clear();
+            if (gorillaMesh) { 
+                if(scene) scene.remove(gorillaMesh);
+                if(gorillaMesh.geometry) gorillaMesh.geometry.dispose();
+                if(gorillaMesh.material) gorillaMesh.material.dispose();
+                gorillaMesh = null; 
+            }
+        }
+        
+        function createTerrainVisuals() {
+            clearSceneAddons(); 
+            if (selectedTerrainType === 'light_forest') {
+                const treeMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); 
+                const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 }); 
+                for (let i = 0; i < 15; i++) { 
+                    const trunkHeight = Math.random() * 5 + 5; 
+                    const trunkRadius = Math.random() * 0.3 + 0.2;
+                    const trunkGeom = new THREE.CylinderGeometry(trunkRadius, trunkRadius * 1.2, trunkHeight, 8);
+                    const trunk = new THREE.Mesh(trunkGeom, treeMaterial);
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = ARENA_RADIUS * (0.3 + Math.random() * 0.65); 
+                    trunk.position.set(Math.cos(angle) * radius, trunkHeight / 2, Math.sin(angle) * radius);
+                    trunk.castShadow = true; scene.add(trunk); terrainObjects.push(trunk);
+                    const leavesRadius = trunkRadius * 5;
+                    const leavesGeom = new THREE.SphereGeometry(leavesRadius, 8, 6);
+                    const leaves = new THREE.Mesh(leavesGeom, leavesMaterial);
+                    leaves.position.set(trunk.position.x, trunkHeight + leavesRadius * 0.5, trunk.position.z);
+                    leaves.castShadow = true; scene.add(leaves); terrainObjects.push(leaves);
+                }
+                logMessage("Light forest terrain generated visually.", "terrain-info");
+            } else if (selectedTerrainType === 'rocky_terrain') {
+                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.8 });
+                for (let i = 0; i < 25; i++) { 
+                    const rockSize = Math.random() * 1.5 + 0.5; 
+                    const rockGeom = new THREE.DodecahedronGeometry(rockSize, 0); 
+                    const rock = new THREE.Mesh(rockGeom, rockMaterial);
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = ARENA_RADIUS * (0.2 + Math.random() * 0.75);
+                    rock.position.set(Math.cos(angle) * radius, rockSize / 2, Math.sin(angle) * radius);
+                    rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                    rock.castShadow = true; scene.add(rock); terrainObjects.push(rock);
+                }
+                logMessage("Rocky terrain generated visually.", "terrain-info");
+            }
+        }
+
+        function create3DEntities() {
+            console.log("create3DEntities called, selected strategy:", selectedStrategyId);
+            clearScene(); 
+            createTerrainVisuals(); 
+            const gorillaGeometry = new THREE.SphereGeometry(GORILLA_SIZE, 32, 16);
+            let gorillaColor = 0x343a40; // Bootstrap dark, slightly different from canvas for visibility
+            if (selectedStrategyId === 'gorilla_berserk') gorillaColor = 0xc0392b; 
+            const gorillaMaterial = new THREE.MeshStandardMaterial({ color: gorillaColor, roughness: 0.5, metalness: 0.3 });
+            gorillaMesh = new THREE.Mesh(gorillaGeometry, gorillaMaterial);
+            gorillaMesh.position.set(0, GORILLA_SIZE, 0);
+            gorillaMesh.castShadow = true;
+            gorillaMesh.userData.originalPosition = gorillaMesh.position.clone();
+            if (scene) scene.add(gorillaMesh);
+            const humanGeometry = new THREE.SphereGeometry(HUMAN_SIZE, 16, 8);
+            men.forEach((man, index) => {
+                const humanMaterial = new THREE.MeshStandardMaterial({ color: 0x007bff, roughness: 0.7 }); 
+                const human = new THREE.Mesh(humanGeometry, humanMaterial.clone());
+                const angle = (index / 100) * Math.PI * 2 * (0.8 + Math.random() * 0.4); 
+                const radiusVariance = ARENA_RADIUS * 0.55 + Math.random() * (ARENA_RADIUS * 0.40);
+                human.position.set(Math.cos(angle) * radiusVariance, HUMAN_SIZE, Math.sin(angle) * radiusVariance);
+                human.castShadow = true; human.userData.id = man.id;
+                human.userData.originalPosition = human.position.clone();
+                if (scene) scene.add(human); humanMeshes.set(man.id, human);
+            });
+            console.log("3D entities created. Gorilla and " + humanMeshes.size + " humans.");
+        }
+        
+        function updateHuman3DStatus(humanId, status) {
+            const humanMesh = humanMeshes.get(humanId);
+            if (humanMesh) {
+                if (status === 'defeated') {
+                    new TWEEN.Tween(humanMesh.material.color.getRGB(new THREE.Color()))
+                        .to({ r: 0.8, g: 0.2, b: 0.2 }, Math.max(100, simulationSpeed * 0.3)) 
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .onUpdate((obj) => humanMesh.material.color.setRGB(obj.r, obj.g, obj.b))
+                        .start();
+                    new TWEEN.Tween(humanMesh.position)
+                        .to({ y: HUMAN_SIZE * 0.1 }, Math.max(150, simulationSpeed * 0.5)) 
+                        .easing(TWEEN.Easing.Bounce.Out)
+                        .start();
+                    new TWEEN.Tween(humanMesh.rotation)
+                        .to({ x: humanMesh.rotation.x + (Math.random() - 0.5) * Math.PI, z: humanMesh.rotation.z + (Math.random() -0.5) * Math.PI}, Math.max(150, simulationSpeed * 0.5)) 
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .start();
+                }
+            }
+        }
+
+        function animateAttack3D(attackerMesh, targetMesh, onComplete) {
+            if (!attackerMesh || !targetMesh || !attackerMesh.userData.originalPosition) {
+                if(onComplete) onComplete(); return;
+            }
+            activeTweens++;
+            const originalPos = attackerMesh.userData.originalPosition.clone();
+            const targetPos = targetMesh.position.clone();
+            const attackPos = new THREE.Vector3().lerpVectors(originalPos, targetPos, 0.7);
+            if(attackerMesh === gorillaMesh) attackPos.y = GORILLA_SIZE; 
+            else attackPos.y = HUMAN_SIZE; 
+            const lungeDuration = Math.max(50, simulationSpeed * 0.15); 
+            const returnDuration = Math.max(80, simulationSpeed * 0.25);
+            const lungeTween = new TWEEN.Tween(attackerMesh.position).to(attackPos, lungeDuration).easing(TWEEN.Easing.Quadratic.Out);
+            const returnTween = new TWEEN.Tween(attackerMesh.position).to(originalPos, returnDuration).easing(TWEEN.Easing.Quadratic.InOut)
+                .onComplete(() => { activeTweens--; if (onComplete) onComplete(); });
+            lungeTween.chain(returnTween).start();
+        }
+        
+        function logMessage(message, type = '') {
+            const entry = document.createElement('div');
+            entry.textContent = `R${currentRound}: ${message}`;
+            entry.className = `log-entry ${type}`;
+            if (battleLog) {
+                 battleLog.insertBefore(entry, battleLog.firstChild);
+                if (battleLog.children.length > 200) { battleLog.removeChild(battleLog.lastChild); }
+            } else { console.warn("Battle log element not found for message:", message); }
+        }
+        
+        function updateUIDisplay() { 
+            if(roundCounterValTopEl) roundCounterValTopEl.textContent = currentRound;
+            if(gorillaHpValTopEl) gorillaHpValTopEl.textContent = `${Math.max(0,gorillaCurrentHp)}/${currentGorillaMaxHp}`;
+            const activeMenCount = men.filter(man => man.status === 'active').length;
+            if(menCountValTopEl) menCountValTopEl.textContent = activeMenCount;
+        }
+        
+        function applyStrategyAndSettings() {
+            console.log("Applying strategy and settings. Strategy:", selectedStrategyId, "Terrain:", selectedTerrainType, "Aggro:", selectedGorillaAggression, "Coord:", selectedHumanCoordination);
+            currentGorillaMaxHp = BASE_GORILLA_MAX_HP; currentGorillaAttackMin = BASE_GORILLA_ATTACK_MIN;
+            currentGorillaAttackMax = BASE_GORILLA_ATTACK_MAX; currentGorillaSkill = BASE_GORILLA_SKILL;
+            currentGorillaDefense = BASE_GORILLA_DEFENSE; currentGorillaAttacksPerTurn = 1;
+            currentGorillaMovementSpeedFactor = 1.0; 
+            currentHumanAttackMin = BASE_HUMAN_ATTACK_MIN; currentHumanAttackMax = BASE_HUMAN_ATTACK_MAX;
+            currentHumanLuckyHitChance = BASE_HUMAN_LUCKY_HIT_CHANCE; currentHumanLuckyHitBonusMin = BASE_HUMAN_LUCKY_HIT_BONUS_MIN;
+            currentHumanLuckyHitBonusMax = BASE_HUMAN_LUCKY_HIT_BONUS_MAX; currentMaxEngagedHumans = BASE_MAX_ENGAGED_HUMANS;
+            currentHumanEvasionBonus = 0; 
+            currentHumanHpForSim = baseHumanHpFromInput; currentHumanSkillForSim = baseHumanSkillFromInput;
+            let terrainLog = "Terrain: Open Field. No special effects.";
+            if (selectedTerrainType === 'light_forest') {
+                currentHumanEvasionBonus = 10; currentGorillaMovementSpeedFactor = 0.85; 
+                currentGorillaSkill -= 5; terrainLog = "Light Forest: Humans gain +10% evasion, Gorilla skill -5.";
+            } else if (selectedTerrainType === 'rocky_terrain') {
+                currentGorillaSkill -= 8; terrainLog = "Rocky Terrain: Gorilla skill -8.";
+            }
+            logMessage(terrainLog, "terrain-info");
+            if (selectedGorillaAggression === 'wary') {
+                currentGorillaDefense += 1; currentGorillaSkill -= 5;
+                logMessage("Gorilla is Wary: Defense +1, Skill -5.", "status");
+            } else if (selectedGorillaAggression === 'enraged') {
+                currentGorillaAttackMin += 10; currentGorillaAttackMax += 10;
+                currentGorillaDefense = Math.max(0, currentGorillaDefense -1); 
+                logMessage("Gorilla is Enraged: Attack +10, Defense -1.", "status");
+            }
+            if(selectedHumanCoordination === 'poor') {
+                currentMaxEngagedHumans = Math.max(1, BASE_MAX_ENGAGED_HUMANS - 3);
+                currentHumanSkillForSim = Math.max(10, currentHumanSkillForSim - 10);
+                logMessage("Human Coordination Poor: Fewer engage, Skill -10.", "status");
+            } else if (selectedHumanCoordination === 'good') {
+                currentMaxEngagedHumans = BASE_MAX_ENGAGED_HUMANS + 2;
+                currentHumanSkillForSim = Math.min(100, currentHumanSkillForSim + 10);
+                logMessage("Human Coordination Good: More engage, Skill +10.", "status");
+            }
+            let strategyDescription = "Standard Swarm: Balanced approach.";
+            switch (selectedStrategyId) {
+                case "cautious_approach": currentMaxEngagedHumans = Math.max(1, currentMaxEngagedHumans - 2); currentHumanLuckyHitChance = Math.max(0, currentHumanLuckyHitChance - 5); currentGorillaSkill = Math.max(30, currentGorillaSkill - 7); strategyDescription = "Cautious Approach: Men are more wary, further reducing engagement."; break;
+                case "desperate_rush": currentHumanSkillForSim = Math.min(100, currentHumanSkillForSim + 10); currentMaxEngagedHumans += 2; currentHumanHpForSim = Math.max(1, Math.round(currentHumanHpForSim * 0.85)); strategyDescription = `Desperate Rush: Men even more reckless! Further skill boost, more engage, but HP reduced.`; break;
+                case "improvised_weapons": currentHumanAttackMin += (selectedTerrainType === 'rocky_terrain' ? 2 : 1); currentHumanAttackMax += (selectedTerrainType === 'rocky_terrain' ? 3 : 2); currentHumanLuckyHitChance += 3; strategyDescription = `Improvised Weapons: Men use ${selectedTerrainType === 'rocky_terrain' ? 'good rocks' : 'sticks/rocks'}. Dmg & Lucky Hit boosted.`; break;
+                case "makeshift_spears": currentHumanAttackMin += 1; currentHumanAttackMax += 4; currentHumanLuckyHitBonusMax += 5; currentMaxEngagedHumans = Math.max(1, currentMaxEngagedHumans - 2); if (selectedTerrainType === 'light_forest') currentHumanSkillForSim -=5; strategyDescription = `Makeshift Spears: Potent weapons. Dmg boosted. ${selectedTerrainType === 'light_forest' ? 'Slightly less effective in forest.' : ''}`; break;
+                case "gorilla_berserk": currentGorillaAttackMin = BASE_GORILLA_ATTACK_MIN + 20; currentGorillaAttackMax = BASE_GORILLA_ATTACK_MAX + 25; currentGorillaSkill = Math.max(40, BASE_GORILLA_SKILL - 20); currentGorillaDefense = 0; currentGorillaAttacksPerTurn = 2; strategyDescription = "GORILLA BERSERK: Uncontrollable RAGE! Attacks twice, massive damage, very inaccurate, no defense."; break;
+            }
+            logMessage(strategyDescription, "strategy-info");
+            currentGorillaSkill = Math.max(10, Math.min(100, currentGorillaSkill));
+            currentHumanSkillForSim = Math.max(10, Math.min(100, currentHumanSkillForSim));
+        }
+
+        function initializeSimulation() { 
+            console.log("initializeSimulation called");
+            if (simulationInterval) { clearInterval(simulationInterval); simulationInterval = null; }
+            gameOver = false; currentRound = 0; 
+            baseHumanHpFromInput = parseInt(humanHpInput.value) || 25; 
+            baseHumanSkillFromInput = parseInt(humanSkillInput.value) || 65;
+            simulationSpeed = parseInt(simSpeedInput.value) || 600;
+            selectedTerrainType = terrainTypeSelect.value;
+            selectedGorillaAggression = gorillaAggressionSelect.value;
+            selectedHumanCoordination = humanCoordinationSelect.value;
+            applyStrategyAndSettings(); 
+            gorillaCurrentHp = currentGorillaMaxHp; 
+            men = [];
+            for (let i = 0; i < 100; i++) { men.push({ id: i, hp: currentHumanHpForSim, status: 'active' }); }
+            create3DEntities(); updateUIDisplay();  
+            startBtn.disabled = false; resetBtn.disabled = true; 
+            [humanHpInput, humanSkillInput, simSpeedInput, terrainTypeSelect, gorillaAggressionSelect, humanCoordinationSelect].forEach(el => el.disabled = false);
+            if(strategySelectorContainer) strategySelectorContainer.style.pointerEvents = "auto";
+            if(gameStatusTopEl) gameStatusTopEl.textContent = 'Ready. Configure & Start.'; 
+            console.log("initializeSimulation completed.");
+        }
+        
+        function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+        async function performSingleGorillaAttack() { 
+            return new Promise(resolve => {
+                if (gameOver) { resolve(); return; }
+                const activeMen = men.filter(man => man.status === 'active');
+                if (activeMen.length === 0) { resolve(); return; }
+                const targetManData = activeMen[getRandomInt(0, activeMen.length - 1)];
+                const targetManMesh = humanMeshes.get(targetManData.id);
+                animateAttack3D(gorillaMesh, targetManMesh, () => { 
+                    let hitChance = currentGorillaSkill;
+                    if (Math.random() * 100 < currentHumanEvasionBonus) { // Human Evasion Check
+                        logMessage(`Man #${targetManData.id + 1} evades due to terrain!`, 'status');
+                        resolve(); return;
+                    }
+                    if (Math.random() * 100 < hitChance) { 
+                        const damage = getRandomInt(currentGorillaAttackMin, currentGorillaAttackMax);
+                        targetManData.hp -= damage;
+                        logMessage(`Gorilla attacks Man #${targetManData.id + 1} for ${damage} damage!`, 'gorilla-attack');
+                        if (targetManData.hp <= 0) {
+                            targetManData.hp = 0; targetManData.status = 'defeated';
+                            logMessage(`Man #${targetManData.id + 1} is defeated!`, 'status');
+                            updateHuman3DStatus(targetManData.id, 'defeated');
+                        }
+                    } else { logMessage(`Gorilla's attack on Man #${targetManData.id + 1} misses.`, 'gorilla-attack'); }
+                    resolve();
+                });
+            });
+        }
+        
+        async function gorillaTurn() {
+            for (let i = 0; i < currentGorillaAttacksPerTurn; i++) {
+                if (gameOver) break;
+                if (i > 0) { 
+                    logMessage("Gorilla strikes again in its FURY!", "gorilla-attack status");
+                    updateUIDisplay(); 
+                    await new Promise(r => setTimeout(r, Math.min(200, simulationSpeed * 0.2)));
+                }
+                await performSingleGorillaAttack();
+                checkWinConditions(); // Check win conditions after each gorilla attack if it has multiple
+                if (gameOver) break; 
+            }
+        }
+
+        function menTurn() { 
+            return new Promise(resolve => {
+                if (gameOver) { resolve(); return; }
+                const activeMen = men.filter(man => man.status === 'active');
+                const shuffledActiveMen = activeMen.sort(() => 0.5 - Math.random());
+                const attackersData = shuffledActiveMen.slice(0, currentMaxEngagedHumans);
+                if (attackersData.length === 0) { resolve(); return; }
+                let totalDamageThisRoundByMen = 0; let luckyHitsThisRound = 0; let attacksProcessed = 0;
+                function checkCompletion() {
+                    attacksProcessed++;
+                    if (attacksProcessed === attackersData.length) {
+                        if (luckyHitsThisRound > 0) logMessage(`${attackersData.length} men attack. Gorilla takes ${totalDamageThisRoundByMen} total damage (${luckyHitsThisRound} lucky hit(s)!).`, 'human-attack lucky-hit');
+                        else if (totalDamageThisRoundByMen > 0) logMessage(`${attackersData.length} men attack. Gorilla takes ${totalDamageThisRoundByMen} total damage.`, 'human-attack');
+                        else if (attackersData.length > 0) logMessage(`${attackersData.length} men swarm, but fail to harm the Gorilla.`, 'human-attack');
+                        if (gorillaCurrentHp <= 0) gorillaCurrentHp = 0;
+                        resolve();
+                    }
+                }
+                attackersData.forEach(manData => {
+                    if (gorillaCurrentHp <= 0 || gameOver) { checkCompletion(); return; }
+                    const manMesh = humanMeshes.get(manData.id);
+                    animateAttack3D(manMesh, gorillaMesh, () => { 
+                        if (Math.random() * 100 < currentHumanSkillForSim) { 
+                            let damage = getRandomInt(currentHumanAttackMin, currentHumanAttackMax); 
+                            damage = Math.max(0, damage - currentGorillaDefense); 
+                            if (Math.random() * 100 < currentHumanLuckyHitChance) { 
+                                const bonusDamage = getRandomInt(currentHumanLuckyHitBonusMin, currentHumanLuckyHitBonusMax); 
+                                logMessage(`Man #${manData.id + 1} lands a LUCKY HIT for an extra ${bonusDamage} damage!`, 'lucky-hit');
+                                damage += bonusDamage; luckyHitsThisRound++;
+                            }
+                            if (damage > 0) { gorillaCurrentHp -= damage; totalDamageThisRoundByMen += damage; }
+                        }
+                        checkCompletion();
+                    });
+                });
+            });
+        }
+
+        function checkWinConditions() { 
+            const activeMenCount = men.filter(man => man.status === 'active').length;
+            if (gorillaCurrentHp <= 0 || activeMenCount === 0) {
+                gameOver = true;
+                let WinnerText = "";
+                if (gorillaCurrentHp <= 0) {
+                    WinnerText = `<span class="victory human-victory">The Men have vanquished the Gorilla! (${activeMenCount} remaining)</span>`;
+                    logMessage('HUMANS WIN!', 'victory human-victory');
+                } else {
+                    WinnerText = `<span class="victory gorilla-victory">The Gorilla reigns supreme!</span>`;
+                    logMessage('GORILLA WINS!', 'victory gorilla-victory');
+                }
+                if(gameStatusTopEl) gameStatusTopEl.innerHTML = WinnerText;
+                
+                if(simulationInterval) clearInterval(simulationInterval);
+                simulationInterval = null;
+                startBtn.disabled = false; resetBtn.disabled = false; 
+                [humanHpInput, humanSkillInput, simSpeedInput, terrainTypeSelect, gorillaAggressionSelect, humanCoordinationSelect].forEach(el => el.disabled = false);
+                if(strategySelectorContainer) strategySelectorContainer.style.pointerEvents = "auto";
+            }
+        }
+        
+        async function simulationStep() { 
+            if (gameOver) return; currentRound++;
+            // Simple throttle for animations
+            while(activeTweens > currentMaxEngagedHumans * 0.8 && !gameOver) { await new Promise(r => setTimeout(r, 50)); }
+            if (gameOver) return; 
+            
+            await gorillaTurn(); 
+            updateUIDisplay(); 
+            // Win condition already checked within gorillaTurn if multiple attacks
+            if (currentGorillaAttacksPerTurn <= 1) checkWinConditions(); 
+            if (gameOver) return;
+
+            await menTurn(); 
+            updateUIDisplay(); 
+            checkWinConditions(); 
+        }
+
+        function populateStrategyCards() {
+            console.log("populateStrategyCards called");
+            if (!strategySelectorContainer) { console.error("FATAL: strategySelectorContainer DIV not found!"); if(gameStatusTopEl) gameStatusTopEl.textContent = "Error: Strategy UI missing."; return; }
+            strategySelectorContainer.innerHTML = ''; 
+            strategies.forEach(strategy => {
+                const card = document.createElement('div'); card.className = 'strategy-card'; card.dataset.strategyId = strategy.id;
+                const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = strategy.icon; card.appendChild(icon);
+                const name = document.createElement('div'); name.className = 'name'; name.textContent = strategy.name; card.appendChild(name);
+                const description = document.createElement('div'); description.className = 'description'; description.textContent = strategy.description; card.appendChild(description);
+                card.addEventListener('click', () => {
+                    if (simulationInterval) return; selectedStrategyId = strategy.id;
+                    document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected'); console.log("Strategy selected by click:", selectedStrategyId);
+                });
+                strategySelectorContainer.appendChild(card);
+            });
+            const defaultCard = strategySelectorContainer.querySelector(`.strategy-card[data-strategy-id="${selectedStrategyId}"]`);
+            if (defaultCard) { defaultCard.classList.add('selected'); }
+            console.log("Strategy cards populated.");
+        }
+
+        startBtn.addEventListener('click', () => {
+            console.log("Start button clicked.");
+            if (simulationInterval) return; 
+            initializeSimulation(); 
+            if(gameStatusTopEl) gameStatusTopEl.textContent = 'Simulation in progress...';
+            if(battleLog) battleLog.innerHTML = ''; 
+            const selectedStrategyObject = strategies.find(s => s.id === selectedStrategyId);
+            const strategyDisplayName = selectedStrategyObject ? selectedStrategyObject.name : "Unknown Strategy";
+            logMessage(`Strategy: ${strategyDisplayName}`, "strategy-info bold");
+            logMessage(`Terrain: ${terrainTypeSelect.options[terrainTypeSelect.selectedIndex].text}, Gorilla: ${gorillaAggressionSelect.options[gorillaAggressionSelect.selectedIndex].text}, Coordination: ${humanCoordinationSelect.options[humanCoordinationSelect.selectedIndex].text}`, "status");
+            logMessage(`Base HP:${baseHumanHpFromInput}, Base Skill:${baseHumanSkillFromInput}%. Sim Speed:${simulationSpeed}ms.`, "status");
+            startBtn.disabled = true; resetBtn.disabled = false; 
+            [humanHpInput, humanSkillInput, simSpeedInput, terrainTypeSelect, gorillaAggressionSelect, humanCoordinationSelect].forEach(el => el.disabled = true);
+            if(strategySelectorContainer) strategySelectorContainer.style.pointerEvents = "none";
+            simulationInterval = setInterval(simulationStep, simulationSpeed);
+        });
+        resetBtn.addEventListener('click', () => { 
+            console.log("Reset button clicked.");
+            initializeSimulation(); 
+            if(battleLog) battleLog.innerHTML = ''; 
+            logMessage("Simulation reset. Adjust settings, choose a strategy, or press Start.", "status");
+        });
+        window.addEventListener('resize', () => { 
+            if (camera && renderer && scene) { 
+                const canvasContainer = document.getElementById('threejsCanvasContainer');
+                 if (canvasContainer && canvasContainer.clientWidth > 0 && canvasContainer.clientHeight > 0) {
+                    camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+                }
+            }
+        });
+
+        try {
+            initThree(); 
+            animateThree(); 
+            populateStrategyCards();
+            initializeSimulation(); 
+            console.log("Initial page load setup complete.");
+        } catch (error) {
+            console.error("Error during initial page load setup:", error);
+            if(gameStatusTopEl) gameStatusTopEl.textContent = "Critical error on page load.";
+        }
+    </script>
+</body>
+</html>
